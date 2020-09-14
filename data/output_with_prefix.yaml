@@ -1,0 +1,6 @@
+my_entry:
+  BEENV: production
+  CDN_HOST: example.com
+  DATABASE_HOST: .db.example.com
+  DATABASE_NAME: example
+  DATABASE_PORT: '5432'

@@ -1,8 +1,9 @@
 import codecs
+import configparser
 import logging
 import os
 import time
-from typing import Generator, Optional, Tuple
+from typing import Dict, Generator, Optional, Tuple
 
 import configargparse
 
@@ -15,6 +16,12 @@ LOG_FORMAT = "%(asctime)s [%(name)s @ PID:%(process)d " \
 logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
+
+
+class SupportedOutputFormats(object):
+    YAML_FORMAT = "yaml"
+    CONFIG_FORMAT = "config"
+    KEY_VALUE_AS_TEXT_FORMAT = "kv"
 
 
 def init_config_parser() -> configargparse.ArgParser:
@@ -42,6 +49,19 @@ def init_config_parser() -> configargparse.ArgParser:
         default=None
     )
 
+    parser.add_argument(
+        "--output-format",
+        type=str,
+        help="Output format",
+        required=False,
+        default=SupportedOutputFormats.YAML_FORMAT,
+        choices=[
+            SupportedOutputFormats.YAML_FORMAT,
+            SupportedOutputFormats.CONFIG_FORMAT,
+            SupportedOutputFormats.KEY_VALUE_AS_TEXT_FORMAT
+        ]
+    )
+
     return parser
 
 
@@ -61,7 +81,56 @@ def data_extractor(data) -> Generator[Tuple[str, str], None, None]:
         yield output_item
 
 
-def convert_file(input_file_path: str, output_file_path: str, root_key: Optional[str] = None) -> None:
+def save_output_as_yaml(
+        data_to_save: Dict,
+        output_file_path: str,
+        root_key: Optional[str] = None
+) -> None:
+    if root_key:
+        output_data = {
+            root_key: data_to_save
+        }
+    else:
+        output_data = data_to_save
+
+    with codecs.open(output_file_path, "w", "utf-8") as output_file:
+        yaml.safe_dump(output_data, output_file)
+
+
+def save_output_as_config(
+        data_to_save: Dict,
+        output_file_path: str,
+        root_key: Optional[str] = None
+) -> None:
+    if not root_key:
+        raise NotImplementedError("To use INI format you need specify root key")
+
+    config = configparser.RawConfigParser()
+    config.add_section(root_key)
+    for key, value in data_to_save.items():
+        config[root_key][key] = value
+
+    with codecs.open(output_file_path, "w", "utf-8") as output_file:
+        config.write(output_file)
+
+
+def save_output_as_raw_key_value_format(
+        data_to_save: Dict,
+        output_file_path: str
+) -> None:
+    with codecs.open(output_file_path, "w", "utf-8") as output_file:
+        lines_to_save = [f"{key}={value}" for key, value in data_to_save.items()]
+        lines_to_save = "\n".join(lines_to_save)
+        output_file.writelines(lines_to_save)
+        output_file.write("\n")
+
+
+def convert_file(
+        input_file_path: str,
+        output_file_path: str,
+        output_format: str,
+        root_key: Optional[str] = None
+) -> None:
     logger.info(
         f"Processing file '{input_file_path}' and going to save output "
         f"into '{output_file_path}' with root key '{root_key}''"
@@ -76,15 +145,28 @@ def convert_file(input_file_path: str, output_file_path: str, root_key: Optional
         logger.debug(f"key = '{key}', value = '{value}'")
         gathered_data[key] = value
 
-    if root_key:
-        output_data = {
-            root_key: gathered_data
-        }
-    else:
-        output_data = gathered_data
+    if output_format == SupportedOutputFormats.YAML_FORMAT:
+        save_output_as_yaml(
+            data_to_save=gathered_data,
+            output_file_path=output_file_path,
+            root_key=root_key
+        )
+    elif output_format == SupportedOutputFormats.CONFIG_FORMAT:
+        save_output_as_config(
+            data_to_save=gathered_data,
+            output_file_path=output_file_path,
+            root_key=root_key
+        )
+    elif output_format == SupportedOutputFormats.KEY_VALUE_AS_TEXT_FORMAT:
+        if root_key:
+            logger.warning("Root key will be ignored when saving in raw key-value text format")
 
-    with codecs.open(output_file_path, "w", "utf-8") as output_file:
-        yaml.safe_dump(output_data, output_file)
+        save_output_as_raw_key_value_format(
+            data_to_save=gathered_data,
+            output_file_path=output_file_path
+        )
+    else:
+        raise NotImplementedError(f"Output format '{output_format}' is not supported")
 
 
 def main() -> int:
@@ -96,11 +178,15 @@ def main() -> int:
         logger.error(f"Can't find input file {args.input}")
         return -1
 
-    convert_file(
-        input_file_path=args.input,
-        output_file_path=args.output,
-        root_key=args.root_key
-    )
+    try:
+        convert_file(
+            input_file_path=args.input,
+            output_file_path=args.output,
+            output_format=args.output_format,
+            root_key=args.root_key
+        )
+    except Exception as e:
+        logger.error(f"Error converting: {e}")
 
     time_end = time.time()
     time_elapsed = round(time_end - time_start, 3)

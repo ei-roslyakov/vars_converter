@@ -19,28 +19,28 @@ config:
       value: "5432"
 ```
 
-and will generate output in formats:
+and will generate output in different formats:
 
-```yaml
-BEENV: production
-CDN_HOST: example.com
-DATABASE_HOST: .db.example.com
-DATABASE_NAME: example
-DATABASE_PORT: '5432'
+- YAML
+- INI (configuration file)
+- plain text key value
+
+Command line arguments supported:
+
 ```
+$ python converter.py --help
+2020-09-14 15:16:30,581 [root @ PID:4456 (main:157)] - DEBUG - Application started
+usage: converter.py [-h] --input INPUT --output OUTPUT [--root-key ROOT_KEY]
+                    [--output-format {yaml,config,txt}]
 
-or with prefix key
-
-```yaml
-my_entry:
-  BEENV: production
-  CDN_HOST: example.com
-  DATABASE_HOST: .db.example.com
-  DATABASE_NAME: example
-  DATABASE_PORT: '5432'
+optional arguments:
+  -h, --help            show this help message and exit
+  --input INPUT         Input file path
+  --output OUTPUT       Output file path
+  --root-key ROOT_KEY   Root key in output file
+  --output-format {yaml,config,txt}
+                        Output format
 ```
-
-loading data from key `config.data` from input file.
 
 ## Requirements
 
@@ -56,30 +56,91 @@ pip install -r requirements.txt
 
 On Linux you need to use `pip3` instead of `pip`
 
-## Usage
+## Usage and supported output formats
 
-To convert file `./data/input_helm_vars.yaml` and save results
-into `./data/output_vars.yaml` please use command line like:
+### YAML format support
 
-```shell
-python converter.py --input ./data/input_helm_vars.yaml --output ./data/output_vars.yaml
+To use this format please specify `--output-format yaml` in command line
+
+Supports output in formats like:
+
+```yaml
+BEENV: production
+CDN_HOST: example.com
+DATABASE_HOST: .db.example.com
+DATABASE_NAME: example
+DATABASE_PORT: '5432'
 ```
 
-On Linux OS you may want to use `python3` instead of just `python`
-
-If you want to have output with prefix like:
+or with prefix key (can be specified using `--root-key my_entry`)
 
 ```yaml
 my_entry:
   BEENV: production
   CDN_HOST: example.com
   DATABASE_HOST: .db.example.com
+  DATABASE_NAME: example
+  DATABASE_PORT: '5432'
 ```
 
-you need to execute:
+loading data from key `config.data` from input file.
+
+Command line example:
 
 ```
-python converter.py --input ./data/input_helm_vars.yaml --output ./data/output_with_prefix.yaml --root-key my_entry
+python converter.py --input ./data/input_helm_vars.yaml --output ./data/output_with_prefix.yaml --root-key my_entry --output-format yaml
+```
+
+Or:
+
+```
+python converter.py --input ./data/input_helm_vars.yaml --output ./data/output_flat_yaml.yaml --output-format yaml
+```
+
+### Ini file (configuration file with sections)
+
+To use this format please specify ` --output-format config` in command line.
+
+**Warning:** to use this format you need to specify section
+name using `--root-key my_entry`.
+
+As output converter will generate data like:
+
+```ini
+[my_entry]
+beenv = production
+cdn_host = example.com
+database_host = .db.example.com
+database_name = example
+database_port = 5432
+```
+
+Command line example:
+
+```shell
+python converter.py --input ./data/input_helm_vars.yaml --output ./data/output_as_ini.ini --root-key my_entry --output-format config
+```
+
+### Plain text format
+
+To use this format please specify ` --output-format kv` in command line.
+
+**Warning:** this output format will not support root key.
+
+Using this format converter will generate output like:
+
+```
+BEENV=production
+CDN_HOST=example.com
+DATABASE_HOST=.db.example.com
+DATABASE_NAME=example
+DATABASE_PORT=5432
+```
+
+Command line example:
+
+```
+python converter.py --input ./data/input_helm_vars.yaml --output ./data/output_as_raw_kv.txt --output-format kv
 ```
 
 ## Development
