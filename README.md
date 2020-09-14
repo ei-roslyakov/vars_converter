@@ -59,7 +59,7 @@ On Linux you need to use `pip3` instead of `pip`
 ## Usage
 
 To convert file `./data/input_helm_vars.yaml` and save results
-into `./data/output.yaml` please use command line like:
+into `./data/output_vars.yaml` please use command line like:
 
 ```shell
 python converter.py --input ./data/input_helm_vars.yaml --output ./data/output_vars.yaml
